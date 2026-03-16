@@ -1,9 +1,1 @@
-# blockchain-py
-Blockchain - proof-of-work blockchain with transactions
-
-Zero-dependency Python CLI tool.
-
-## Usage
-```bash
-python3 blockchain.py
-```
+# blockchain-py\n\nZero-dependency Python CLI.\n\n```bash\npython3 blockchain.py\n```\n

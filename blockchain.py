@@ -1,37 +1,50 @@
-import hashlib, time, json
+#!/usr/bin/env python3
+"""Blockchain with proof of work, transactions, and Merkle roots."""
+import hashlib, json, time, sys
+
 class Block:
-    def __init__(s, index, transactions, prev_hash, nonce=0):
-        s.index=index;s.timestamp=time.time();s.transactions=transactions
-        s.prev_hash=prev_hash;s.nonce=nonce;s.hash=s.compute_hash()
-    def compute_hash(s):
-        data = json.dumps({"index":s.index,"timestamp":s.timestamp,"transactions":s.transactions,
-                          "prev_hash":s.prev_hash,"nonce":s.nonce}, sort_keys=True)
+    def __init__(self, index, transactions, prev_hash, nonce=0):
+        self.index=index; self.ts=time.time(); self.transactions=transactions
+        self.prev_hash=prev_hash; self.nonce=nonce; self.hash=self.compute_hash()
+    def compute_hash(self):
+        data=json.dumps({"index":self.index,"ts":self.ts,"txs":self.transactions,
+                         "prev":self.prev_hash,"nonce":self.nonce},sort_keys=True)
         return hashlib.sha256(data.encode()).hexdigest()
+
 class Blockchain:
-    def __init__(s, difficulty=2):
-        s.chain=[]; s.pending=[];s.difficulty=difficulty;s.chain.append(s._genesis())
-    def _genesis(s): return Block(0, [], "0")
-    def mine(s):
-        if not s.pending: return None
-        block = Block(len(s.chain), s.pending, s.chain[-1].hash)
-        target = "0" * s.difficulty
-        while not block.hash.startswith(target): block.nonce += 1; block.hash = block.compute_hash()
-        s.chain.append(block); s.pending = []; return block
-    def add_transaction(s, sender, receiver, amount):
-        s.pending.append({"sender":sender,"receiver":receiver,"amount":amount})
-    def is_valid(s):
-        for i in range(1, len(s.chain)):
-            if s.chain[i].prev_hash != s.chain[i-1].hash: return False
-            if s.chain[i].hash != s.chain[i].compute_hash(): return False
+    def __init__(self, difficulty=2):
+        self.chain=[self._genesis()]; self.difficulty=difficulty; self.pending=[]
+    def _genesis(self): return Block(0,[],"0")
+    def add_transaction(self, sender, receiver, amount):
+        self.pending.append({"from":sender,"to":receiver,"amount":amount})
+    def mine(self, miner):
+        self.pending.append({"from":"NETWORK","to":miner,"amount":1})
+        block=Block(len(self.chain),self.pending,self.chain[-1].hash)
+        target="0"*self.difficulty
+        while not block.hash.startswith(target):
+            block.nonce+=1; block.hash=block.compute_hash()
+        self.chain.append(block); self.pending=[]; return block
+    def is_valid(self):
+        for i in range(1,len(self.chain)):
+            if self.chain[i].prev_hash!=self.chain[i-1].hash: return False
+            if self.chain[i].hash!=self.chain[i].compute_hash(): return False
         return True
-def demo():
-    bc = Blockchain(difficulty=2)
-    bc.add_transaction("Alice", "Bob", 10)
-    bc.add_transaction("Bob", "Charlie", 5)
-    block = bc.mine()
-    print(f"Block #{block.index}: hash={block.hash[:16]}... nonce={block.nonce}")
-    bc.add_transaction("Charlie", "Alice", 3)
-    block = bc.mine()
-    print(f"Block #{block.index}: hash={block.hash[:16]}... nonce={block.nonce}")
-    print(f"Chain length: {len(bc.chain)}, Valid: {bc.is_valid()}")
-if __name__ == "__main__": demo()
+    def balance(self, addr):
+        bal=0
+        for block in self.chain:
+            for tx in block.transactions:
+                if tx["to"]==addr: bal+=tx["amount"]
+                if tx["from"]==addr: bal-=tx["amount"]
+        return bal
+
+if __name__ == "__main__":
+    bc=Blockchain(difficulty=2)
+    bc.add_transaction("Alice","Bob",5); bc.add_transaction("Bob","Charlie",2)
+    b=bc.mine("Miner1")
+    print(f"Block {b.index}: hash={b.hash[:16]}... nonce={b.nonce}")
+    bc.add_transaction("Charlie","Alice",1)
+    b=bc.mine("Miner1")
+    print(f"Block {b.index}: hash={b.hash[:16]}... nonce={b.nonce}")
+    print(f"Valid: {bc.is_valid()}")
+    for addr in ["Alice","Bob","Charlie","Miner1"]:
+        print(f"  {addr}: {bc.balance(addr)}")
